@@ -2,7 +2,7 @@ from bot import run_bot_once
 import time
 from datetime import datetime
 
-CHECK_INTERVAL = 60 # in seconds 
+CHECK_INTERVAL = 90 # in seconds 
 
 def main():
     print("🚀 Bot worker started")
