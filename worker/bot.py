@@ -98,14 +98,14 @@ def process_match(match):
         print(f"🔕 Skipped 36' bet for {match_name} — score {score_36} not in target range")
 
     # Check HT result
-    if status == 'HT' and state['36_bet_placed'] and not state['36_result_checked']:
-        current_score = f"{score['home']}-{score['away']}"
-        if current_score == state['score_36']:
-            send_telegram(f"✅ HT Result: {match_name}\n🏆 {league}\n🔢 Score: {current_score}\n🎉 36’ Bet WON")
-            state['skip_80'] = True
-        else:
-                send_telegram(f"❌ HT Result: {match_name}\n🏆 {league}\n🔢 Score: {current_score}\n🔁 36’ Bet LOST — chasing at 80’")
-    state['36_result_checked'] = True
+    if minute == 36 and not state['36_bet_placed']:
+    score_36 = f"{score['home']}-{score['away']}"
+    if score_36 in ['0-0', '1-0', '0-1', '1-1']:
+        state['score_36'] = score_36
+        state['36_bet_placed'] = True
+        send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🔢 Score: {score_36}\n🎯 First Bet Placed")
+    else:
+        print(f"🔕 Skipped 36' bet for {match_name} — score {score_36} not in target range")
 
     # Place 80' Bet
     if minute == 80 and state['36_result_checked'] and not state.get('skip_80') and not state['80_bet_placed']:
