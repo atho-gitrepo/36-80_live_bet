@@ -119,7 +119,7 @@ def process_match(match):
             'placed_at': datetime.utcnow().isoformat(),
             'score_80': score_80,
             'league': league,
-    		'league_id': league_id
+            'league_id': league_id
         }
         save_unresolved_80bets(unresolved)
 
@@ -140,12 +140,25 @@ def check_unresolved_80_bets():
         status = match_data['fixture']['status']['short']
         final_score = f"{match_data['goals']['home']}-{match_data['goals']['away']}"
         league = info.get('league', 'Unknown League')
-		league_id = info.get('league_id', 'N/A')
+        league_id = info.get('league_id', 'N/A')
+
         if status == 'FT':
             if final_score == info['score_80']:
-                send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {final_score}\n🎉 80’ Chase Bet WON"))
+                send_telegram(
+                    f"✅ FT Result: {info['match_name']}\n"
+                    f"🏆 {league}\n"
+                    f"🏷️ League ID: {league_id}\n"
+                    f"🔢 Score: {final_score}\n"
+                    f"🎉 80’ Chase Bet WON"
+                )
             else:
-                send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {final_score}\n📉 80’ Chase Bet LOST")
+                send_telegram(
+                    f"❌ FT Result: {info['match_name']}\n"
+                    f"🏆 {league}\n"
+                    f"🏷️ League ID: {league_id}\n"
+                    f"🔢 Score: {final_score}\n"
+                    f"📉 80’ Chase Bet LOST"
+                )
             updated.pop(match_id)
 
     save_unresolved_80bets(updated)
