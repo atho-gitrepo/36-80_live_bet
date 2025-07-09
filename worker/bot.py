@@ -87,7 +87,7 @@ def process_match(match):
     state = tracked_matches[fixture_id]
 
     # ✅ Place 36' Bet only if score is in allowed patterns
-    if minute == 36 and not state['36_bet_placed']:
+    if 35 <= minute <= 37 and not state['36_bet_placed']:
         score_36 = f"{score['home']}-{score['away']}"
         if score_36 in ['0-0', '1-0', '0-1', '1-1']:
             state['score_36'] = score_36
@@ -107,7 +107,7 @@ def process_match(match):
         state['36_result_checked'] = True
 
     # ✅ Place 80' Chase Bet only if 36’ bet failed and not skipped
-    if minute == 80 and state['36_result_checked'] and not state.get('skip_80') and not state['80_bet_placed']:
+    if 70 <= minute <= 81 and state['36_result_checked'] and not state.get('skip_80') and not state['80_bet_placed']:
         score_80 = f"{score['home']}-{score['away']}"
         state['score_80'] = score_80
         state['80_bet_placed'] = True
