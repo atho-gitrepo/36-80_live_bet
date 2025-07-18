@@ -81,7 +81,8 @@ def process_match(match):
             '36_bet_placed': False,
             '36_result_checked': False,
             '80_bet_placed': False,
-            'match_name': match_name
+            'match_name': match_name,
+            '36_bet_type': None  # New field to track bet type
         }
 
     state = tracked_matches[fixture_id]
@@ -89,10 +90,23 @@ def process_match(match):
     # ✅ Place 36' Bet only if score is in allowed patterns
     if 35 <= minute <= 37 and not state['36_bet_placed']:
         score_36 = f"{score['home']}-{score['away']}"
-        if score_36 in ['0-0', '1-0', '0-1', '1-1']:
+        
+        # New conditions for 36" results
+        if score_36 == '0-0':
             state['score_36'] = score_36
             state['36_bet_placed'] = True
+            state['36_bet_type'] = 'over_1.5'
+            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score_36}\n🎯 Bet: Over 1.5 Goals FT")
+        elif score_36 in ['1-1', '2-2']:
+            state['score_36'] = score_36
+            state['36_bet_placed'] = True
+            state['36_bet_type'] = 'regular'
             send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score_36}\n🎯 First Bet Placed")
+        elif score_36 in ['1-0', '0-1']:
+            state['score_36'] = score_36
+            state['36_bet_placed'] = True
+            state['36_bet_type'] = 'no_draw'
+            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score_36}\n🎯 Bet: No Draw FT")
         else:
             print(f"⛔ Skipping 36' bet for {match_name} — score {score_36} not in allowed range")
 
@@ -100,13 +114,32 @@ def process_match(match):
     if status == 'HT' and state['36_bet_placed'] and not state['36_result_checked']:
         current_score = f"{score['home']}-{score['away']}"
         if current_score == state['score_36']:
-            send_telegram(f"✅ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🎉 36’ Bet WON")
+            send_telegram(f"✅ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🎉 36' Bet WON")
             state['skip_80'] = True
         else:
-            send_telegram(f"❌ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🔁 36’ Bet LOST — chasing at 80’")
+            send_telegram(f"❌ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🔁 36' Bet LOST — chasing at 80'")
         state['36_result_checked'] = True
 
-    # ✅ Place 80' Chase Bet only if 36’ bet failed and not skipped
+    # ✅ Check FT result for special bet types
+    if status == 'FT' and state['36_bet_placed'] and not state.get('ft_result_checked'):
+        final_score = f"{score['home']}-{score['away']}"
+        total_goals = score['home'] + score['away']
+        
+        if state['36_bet_type'] == 'over_1.5':
+            if total_goals > 1.5:
+                send_telegram(f"✅ FT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {final_score}\n🎉 Over 1.5 Goals Bet WON")
+            else:
+                send_telegram(f"❌ FT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {final_score}\n📉 Over 1.5 Goals Bet LOST")
+        
+        elif state['36_bet_type'] == 'no_draw':
+            if final_score not in ['0-0', '1-1', '2-2', '3-3']:  # Assuming these are draw scores
+                send_telegram(f"✅ FT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {final_score}\n🎉 No Draw Bet WON")
+            else:
+                send_telegram(f"❌ FT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {final_score}\n📉 No Draw Bet LOST")
+        
+        state['ft_result_checked'] = True
+
+    # ✅ Place 80' Chase Bet only if 36' bet failed and not skipped
     if 70 <= minute <= 81 and state['36_result_checked'] and not state.get('skip_80') and not state['80_bet_placed']:
         score_80 = f"{score['home']}-{score['away']}"
         state['score_80'] = score_80
@@ -149,7 +182,7 @@ def check_unresolved_80_bets():
                     f"🏆 {league}\n"
                     f"🏷️ League ID: {league_id}\n"
                     f"🔢 Score: {final_score}\n"
-                    f"🎉 80’ Chase Bet WON"
+                    f"🎉 80' Chase Bet WON"
                 )
             else:
                 send_telegram(
@@ -157,7 +190,7 @@ def check_unresolved_80_bets():
                     f"🏆 {league}\n"
                     f"🏷️ League ID: {league_id}\n"
                     f"🔢 Score: {final_score}\n"
-                    f"📉 80’ Chase Bet LOST"
+                    f"📉 80' Chase Bet LOST"
                 )
             updated.pop(match_id)
 
@@ -180,7 +213,7 @@ def run_bot_once():
     live_matches = get_live_matches()
 
     matches_list = [
-        f"{m['teams']['home']['name']} vs {m['teams']['away']['name']} ({m['fixture']['status']['elapsed']}’)"
+        f"{m['teams']['home']['name']} vs {m['teams']['away']['name']} ({m['fixture']['status']['elapsed']}')"
         for m in live_matches
     ]
     save_bot_status(datetime.now().strftime("%Y-%m-%d %H:%M:%S"), matches_list)
