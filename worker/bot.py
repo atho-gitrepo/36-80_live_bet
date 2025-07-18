@@ -111,7 +111,7 @@ def process_match(match):
             print(f"⛔ Skipping 36' bet for {match_name} — score {score_36} not in allowed range")
 
     # ✅ Check HT result
-    if status == 'HT' and state['36_bet_placed'] and not state['36_result_checked']:
+    if status == 'HT' and state['36_bet_placed'] and state['36_bet_type'] == 'regular'and not state['36_result_checked']:
         current_score = f"{score['home']}-{score['away']}"
         if current_score == state['score_36']:
             send_telegram(f"✅ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🎉 36' Bet WON")
