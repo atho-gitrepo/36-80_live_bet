@@ -65,7 +65,8 @@ def fetch_match_result(match_id):
     if res.status_code != 200:
         print(f"❌ Error fetching match {match_id}")
         return None
-    return res.json().get('response', [None])[0]
+    data = res.json().get('response', [])
+    return data[0] if data else None
 
 def process_match(match):
     fixture_id = match['fixture']['id']
@@ -223,8 +224,3 @@ def run_bot_once():
 
     check_unresolved_80_bets()
     return matches_list
-
-if __name__ == "__main__":
-    while True:
-        run_bot_once()
-        time.sleep(60)
