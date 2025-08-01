@@ -2,3 +2,4 @@ flask
 gunicorn
 requests
 python-dotenv
+firebase-admin
