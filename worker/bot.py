@@ -16,6 +16,7 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # Use a new variable for the JSON content itself
 FIREBASE_CREDENTIALS_JSON_STRING = os.getenv("FIREBASE_CREDENTIALS_JSON")
+FIREBASE_DB_ID = os.getenv("FIREBASE_DB_ID")
 
 HEADERS = {'x-apisports-key': API_KEY}
 BASE_URL = 'https://v3.football.api-sports.io'
@@ -28,7 +29,7 @@ class FirebaseManager:
             cred_dict = json.loads(credentials_json_string)
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            self.db = firestore.client()
+            self.db = firestore.client(database=database_id)
             print("✅ Firebase initialized successfully.")
         except Exception as e:
             print(f"❌ Failed to initialize Firebase: {e}")
@@ -56,7 +57,7 @@ class FirebaseManager:
 # Initialize Firebase
 try:
     # Use the JSON string from the environment variable
-    firebase_manager = FirebaseManager(FIREBASE_CREDENTIALS_JSON_STRING)
+    firebase_manager = FirebaseManager(FIREBASE_CREDENTIALS_JSON_STRING,FIREBASE_DB_ID)
 except Exception:
     exit()
 
