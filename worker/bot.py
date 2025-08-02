@@ -25,15 +25,25 @@ class FirebaseManager:
     def __init__(self, credentials_json_string):
         try:
             print("[DEBUG] Initializing Firebase...")
+            
+            print("[DEBUG] Attempting to parse credentials JSON string...")
             cred_dict = json.loads(credentials_json_string)
+            print("✅ Successfully parsed credentials JSON.")
+            
             cred = credentials.Certificate(cred_dict)
-            # Initialize with explicit Firestore settings
+            print("✅ Successfully created credentials object.")
+            
             firebase_admin.initialize_app(cred)
+            print("✅ Successfully initialized Firebase app.")
+            
             self.db = firestore.client()
+            print("✅ Successfully created Firestore client.")
+            
             print("✅ Firebase initialized successfully.")
         except Exception as e:
             print(f"❌ Failed to initialize Firebase: {e}")
             raise
+
 
     def get_tracked_match(self, match_id):
         print(f"[DEBUG] Fetching tracked match state for ID: {match_id}")
