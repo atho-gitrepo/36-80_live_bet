@@ -28,10 +28,14 @@ class FirebaseManager:
             print("[DEBUG] Initializing Firebase...")
             cred_dict = json.loads(credentials_json_string)
             cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred)
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': f'https://{database_id}.firebaseio.com'
+            })
             
-            self.db = firestore.client(database=database_id)
+            self.db = firestore.client()
             print("✅ Firebase initialized successfully.")
+            print(f"Firestore client initialized: {self.db is not None}")
+            print(f"Database ID: {database_id}")
         except Exception as e:
             print(f"❌ Failed to initialize Firebase: {e}")
             raise
