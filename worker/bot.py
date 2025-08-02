@@ -33,10 +33,18 @@ class FirebaseManager:
                                                  'databaseURL': 'https://livebet3680.firebasedatabase.app'  # If using Realtime DB
                                                 })
             
-            self.db = firestore.client()
+            # Use a try-except block to handle the library version difference
+            try:
+                # This is the modern, correct way
+                self.db = firestore.client(database=database_id)
+            except TypeError:
+                # Fallback for older versions of the library
+                print("[WARNING] 'database' keyword not supported. Using default client.")
+                self.db = firestore.client()
+                # Note: The database will likely default to '(default)' here.
+                # If this fails again, a custom database ID might be impossible on your current library version.
+
             print("✅ Firebase initialized successfully.")
-            print(f"Firestore client initialized: {self.db is not None}")
-            print(f"Database ID: {database_id}")
         except Exception as e:
             print(f"❌ Failed to initialize Firebase: {e}")
             raise
