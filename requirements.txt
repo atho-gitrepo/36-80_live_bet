@@ -2,5 +2,5 @@ flask
 gunicorn
 requests
 python-dotenv
-google-cloud-firestore>=2.0.0
-firebase-admin>=5.0.0
+google-cloud-firestore
+firebase-admin
