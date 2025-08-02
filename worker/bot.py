@@ -28,9 +28,10 @@ class FirebaseManager:
             print("[DEBUG] Initializing Firebase...")
             cred_dict = json.loads(credentials_json_string)
             cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': f'https://{database_id}.firebaseio.com'
-            })
+            # Initialize with explicit Firestore settings
+            firebase_admin.initialize_app(cred, {'projectId': 'testing-project-217307',  # Your actual project ID
+                                                 'databaseURL': 'https://livebet3680.firebaseio.com'  # If using Realtime DB
+                                                })
             
             self.db = firestore.client()
             print("✅ Firebase initialized successfully.")
