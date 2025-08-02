@@ -44,7 +44,7 @@ class FirebaseManager:
         doc_ref.set(data, merge=True)
 
     def get_unresolved_bets(self, bet_type):
-        bets = self.db.collection('unresolved_bets').where('bet_type', '==', bet_type).stream()
+        bets = self.db.collection('unresolved_bets').where(filter=firestore.FieldFilter('bet_type', '==', bet_type)).stream()
         return {doc.id: doc.to_dict() for doc in bets}
     
     def add_unresolved_bet(self, match_id, data):
