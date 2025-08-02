@@ -1,0 +1,9 @@
+{
+  "build": {
+    "buildCommand": "pip install --no-cache-dir -r requirements.txt",
+    "watchPatterns": [
+      "*.py",
+      "requirements.txt"
+    ]
+  }
+}
