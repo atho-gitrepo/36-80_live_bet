@@ -22,25 +22,14 @@ BASE_URL = 'https://v3.football.api-sports.io'
 
 class FirebaseManager:
     """Manages all interactions with the Firebase Firestore database."""
-    def __init__(self, credentials_json_string, database_id):
+    def __init__(self, credentials_json_string):
         try:
             print("[DEBUG] Initializing Firebase...")
             cred_dict = json.loads(credentials_json_string)
             cred = credentials.Certificate(cred_dict)
             # Initialize with explicit Firestore settings
             firebase_admin.initialize_app(cred)
-            
-            # Use a try-except block to handle the library version difference
-            try:
-                # This is the modern, correct way
-                self.db = firestore.client(database=database_id)
-            except TypeError:
-                # Fallback for older versions of the library
-                print("[WARNING] 'database' keyword not supported. Using default client.")
-                self.db = firestore.client()
-                # Note: The database will likely default to '(default)' here.
-                # If this fails again, a custom database ID might be impossible on your current library version.
-
+            self.db = firestore.client()
             print("✅ Firebase initialized successfully.")
         except Exception as e:
             print(f"❌ Failed to initialize Firebase: {e}")
