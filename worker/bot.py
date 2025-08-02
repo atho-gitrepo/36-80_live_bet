@@ -183,3 +183,14 @@ def run_bot_once():
     check_unresolved_80_bets()
     print(f"[{datetime.now()}] ✅ Cycle complete.")
 
+if __name__ == "__main__":
+    print("🚀 Bot worker started")
+    while True:
+        try:
+            run_bot_once()
+        except Exception as e:
+            print(f"❌ Unexpected error in main loop: {e}")
+        finally:
+            print(f"[{datetime.now()}] 💤 Sleeping for 90 seconds...")
+            time.sleep(90)
+
