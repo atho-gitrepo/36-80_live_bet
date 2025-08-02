@@ -16,7 +16,6 @@ API_KEY = os.getenv("API_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 FIREBASE_CREDENTIALS_JSON_STRING = os.getenv("FIREBASE_CREDENTIALS_JSON")
-FIREBASE_DB_ID = os.getenv("FIREBASE_DB_ID")
 
 HEADERS = {'x-apisports-key': API_KEY}
 BASE_URL = 'https://v3.football.api-sports.io'
@@ -29,9 +28,7 @@ class FirebaseManager:
             cred_dict = json.loads(credentials_json_string)
             cred = credentials.Certificate(cred_dict)
             # Initialize with explicit Firestore settings
-            firebase_admin.initialize_app(cred, {'projectId': 'testing-project-217307',  # Your actual project ID
-                                                 'databaseURL': 'https://livebet3680.firebasedatabase.app'  # If using Realtime DB
-                                                })
+            firebase_admin.initialize_app(cred)
             
             # Use a try-except block to handle the library version difference
             try:
