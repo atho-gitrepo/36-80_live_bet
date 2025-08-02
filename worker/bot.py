@@ -30,7 +30,7 @@ class FirebaseManager:
             cred = credentials.Certificate(cred_dict)
             # Initialize with explicit Firestore settings
             firebase_admin.initialize_app(cred, {'projectId': 'testing-project-217307',  # Your actual project ID
-                                                 'databaseURL': 'https://livebet3680.firebaseio.com'  # If using Realtime DB
+                                                 'databaseURL': 'https://livebet3680.firebasedatabase.app'  # If using Realtime DB
                                                 })
             
             self.db = firestore.client()
