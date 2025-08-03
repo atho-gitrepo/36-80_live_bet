@@ -95,7 +95,7 @@ class FirebaseManager:
 
 # Initialize Firebase
 try:
-    firebase_manager = FirebaseManager(FIREBASE_CREDENTIALS_JSON_STRING, FIREBASE_DB_ID)
+    firebase_manager = FirebaseManager(FIREBASE_CREDENTIALS_JSON_STRING)
 except Exception:
     exit()
 
