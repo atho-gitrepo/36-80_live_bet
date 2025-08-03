@@ -148,70 +148,142 @@ def fetch_match_result(match_id):
 def process_match(match):
     fixture_id = match['fixture']['id']
     match_name = f"{match['teams']['home']['name']} vs {match['teams']['away']['name']}"
-    minute = match['fixture']['status'].get('elapsed')
-    if minute is None:
-        print(f"⚠️ Skipping match {match_name} - elapsed minute is None (match may not have started or data missing)")
-        return
+    league = match['league']['name']
+    league_id = match['league']['id']
+    minute = match['fixture']['status']['elapsed']
+    status = match['fixture']['status']['short']
     score = f"{match['goals']['home']}-{match['goals']['away']}"
+    home_goals = match['goals']['home']
+    away_goals = match['goals']['away']
+    
     print(f"[DEBUG] Processing match {match_name} (ID: {fixture_id}) at minute {minute} with score {score}")
 
     state = firebase_manager.get_tracked_match(fixture_id)
     if not state:
         print(f"[DEBUG] No existing state found for {match_name}, creating new entry.")
-        state = {'36_bet_placed': False, '80_bet_placed': False}
+        state = {
+            '36_bet_placed': False,
+            '36_result_checked': False,
+            '80_bet_placed': False,
+            '36_bet_type': None,
+            'skip_80': False
+        }
         firebase_manager.update_tracked_match(fixture_id, state)
 
+    # ✅ Place 36' Bet
     if 35 <= minute <= 37 and not state.get('36_bet_placed'):
         print(f"[DEBUG] Checking 36' bet condition for {match_name}. Current score: {score}")
-        if score in ['1-1', '2-2', '3-3']:
-            state['score_36'] = score
+        state['score_36'] = score
+        
+        if score == '0-0':
             state['36_bet_placed'] = True
+            state['36_bet_type'] = 'over_1.5'
             firebase_manager.update_tracked_match(fixture_id, state)
-            send_telegram(f"⏱️ 36' - {match_name}\n🔢 Score: {score}\n🎯 Bet: Goals after 36'")
+            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 Bet: Over 1.5 Goals FT")
+            unresolved_data = {
+                'match_name': match_name,
+                'placed_at': datetime.utcnow().isoformat(),
+                'league': league,
+                'league_id': league_id,
+                'bet_type': 'over_1.5',
+                'home_goals_36': home_goals,
+                'away_goals_36': away_goals,
+            }
+            firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
+        elif score in ['1-1', '2-2', '3-3']:
+            state['36_bet_placed'] = True
+            state['36_bet_type'] = 'regular'
+            firebase_manager.update_tracked_match(fixture_id, state)
+            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 First Bet Placed")
+        elif score in ['1-0', '0-1']:
+            state['36_bet_placed'] = True
+            state['36_bet_type'] = 'no_draw'
+            firebase_manager.update_tracked_match(fixture_id, state)
+            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 Bet: No Draw FT")
+            unresolved_data = {
+                'match_name': match_name,
+                'placed_at': datetime.utcnow().isoformat(),
+                'league': league,
+                'league_id': league_id,
+                'bet_type': 'no_draw',
+                'home_goals_36': home_goals,
+                'away_goals_36': away_goals,
+            }
+            firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
         else:
-            print(f"⛔ Skipping 36' bet for {match_name} — score {score} is not a tie (1-1, 2-2, or 3-3)")
-    
-    if 79 <= minute <= 81 and state.get('36_bet_placed') and not state.get('80_bet_placed'):
-        print(f"[DEBUG] Checking 80' chase bet condition for {match_name}. Current score: {score}")
+            print(f"⛔ Skipping 36' bet for {match_name} — score {score} not in allowed range")
+
+    # ✅ Check HT result
+    if status == 'HT' and state.get('36_bet_placed') and not state.get('36_result_checked') and state.get('36_bet_type') == 'regular':
+        current_score = score
+        if current_score == state['score_36']:
+            send_telegram(f"✅ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🎉 36' Bet WON")
+            state['skip_80'] = True
+        else:
+            send_telegram(f"❌ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🔁 36' Bet LOST — chasing at 80'")
+        
+        state['36_result_checked'] = True
+        firebase_manager.update_tracked_match(fixture_id, state)
+
+    # ✅ Place 80' Chase Bet only if 36' bet failed and not skipped
+    if 79 <= minute <= 81 and state.get('36_result_checked') and not state.get('skip_80') and not state.get('80_bet_placed'):
         score_80 = score
         state['score_80'] = score_80
         state['80_bet_placed'] = True
         firebase_manager.update_tracked_match(fixture_id, state)
-        send_telegram(f"⏱️ 80' - {match_name}\n🔢 Score: {score_80}\n🎯 Chase Bet Placed")
+        send_telegram(f"⏱️ 80' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score_80}\n🎯 Chase Bet Placed")
         unresolved_data = {
             'match_name': match_name,
             'placed_at': datetime.utcnow().isoformat(),
             'score_80': score_80,
-            'league': match['league']['name'],
-            'league_id': match['league']['id'],
+            'league': league,
+            'league_id': league_id,
             'bet_type': '80'
         }
         firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
         
-def check_unresolved_80_bets():
-    print("[DEBUG] Checking for unresolved 80' bets...")
-    unresolved_bets = firebase_manager.get_unresolved_bets('80')
+def check_unresolved_bets(bet_type):
+    print(f"[DEBUG] Checking for unresolved bets of type: {bet_type}...")
+    unresolved_bets = firebase_manager.get_unresolved_bets(bet_type)
 
     for match_id, info in unresolved_bets.items():
         placed_time = datetime.fromisoformat(info['placed_at'])
-        if datetime.utcnow() - placed_time < timedelta(minutes=15):
-            print(f"[DEBUG] Skipping resolution for match {match_id} (not enough time passed).")
+        if datetime.utcnow() - placed_time < timedelta(minutes=15) and bet_type == '80':
+            print(f"[DEBUG] Skipping resolution for 80' bet for match {match_id} (not enough time passed).")
             continue
 
         match_data = fetch_match_result(match_id)
         if not match_data:
             print(f"⚠️ Match {match_id} not found in API. Skipping resolution.")
             continue
-
+        
         status = match_data['fixture']['status']['short']
-        final_score = f"{match_data['goals']['home']}-{match_data['goals']['away']}"
-        print(f"[DEBUG] Final status for {info['match_name']} is {status} with score {final_score}")
-
+        
         if status == 'FT':
-            if final_score != info['score_80']:
-                send_telegram(f"✅ FT Result: {info['match_name']}\n🔢 Score: {final_score}\n🎉 80' Chase Bet WON")
-            else:
-                send_telegram(f"❌ FT Result: {info['match_name']}\n🔢 Score: {final_score}\n📉 80' Chase Bet LOST")
+            final_score = f"{match_data['goals']['home']}-{match_data['goals']['away']}"
+            home_goals_ft = match_data['goals']['home']
+            away_goals_ft = match_data['goals']['away']
+            
+            # --- Resolution Logic for different bet types ---
+            
+            if bet_type == 'over_1.5':
+                if (home_goals_ft + away_goals_ft) > 1:
+                    send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n🎉 Over 1.5 Goals Bet WON")
+                else:
+                    send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n📉 Over 1.5 Goals Bet LOST")
+
+            elif bet_type == 'no_draw':
+                if home_goals_ft != away_goals_ft:
+                    send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n🎉 No Draw Bet WON")
+                else:
+                    send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n📉 No Draw Bet LOST")
+
+            elif bet_type == '80':
+                if final_score != info['score_80']:
+                    send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n🎉 80' Chase Bet WON")
+                else:
+                    send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n📉 80' Chase Bet LOST")
+            
             firebase_manager.resolve_bet(match_id)
 
 def run_bot_once():
@@ -221,7 +293,10 @@ def run_bot_once():
     for match in live_matches:
         process_match(match)
 
-    check_unresolved_80_bets()
+     # Check and resolve all bet types
+    check_unresolved_bets('over_1.5')
+    check_unresolved_bets('no_draw')
+    check_unresolved_bets('80')
     print(f"[{datetime.now()}] ✅ Cycle complete.")
 
 if __name__ == "__main__":
