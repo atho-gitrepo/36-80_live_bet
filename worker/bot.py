@@ -80,14 +80,23 @@ class FirebaseManager:
             print(f"[DEBUG] Successfully added unresolved bet for match ID: {match_id}")
         except Exception as e:
             print(f"❌ Firestore Error during add_unresolved_bet: {e}")
-        
-    def resolve_bet(self, match_id):
-        print(f"[DEBUG] Resolving bet for match ID: {match_id}")
-        try:
-            self.db.collection('unresolved_bets').document(str(match_id)).delete()
-            print(f"[DEBUG] Successfully resolved bet for match ID: {match_id}")
-        except Exception as e:
-            print(f"❌ Firestore Error during resolve_bet: {e}")
+        # Add this new function to your FirebaseManager class.
+        # It replaces the old resolve_bet function.
+    def move_to_resolved(self, match_id, bet_info, outcome):
+            print(f"[DEBUG] Moving resolved bet for match ID: {match_id} to resolved_bets collection...")
+            resolved_bet_ref = self.db.collection('resolved_bets').document(str(match_id))
+            try:
+                resolved_data = {
+                **bet_info,
+                'outcome': outcome,
+                'resolved_at': datetime.utcnow().isoformat()
+                } 
+                resolved_bet_ref.set(resolved_data)
+                self.db.collection('unresolved_bets').document(str(match_id)).delete()
+                print(f"[DEBUG] Successfully moved bet for match ID: {match_id}")
+            except Exception as e:
+                print(f"❌ Firestore Error during move_to_resolved: {e}")
+
 
 # Initialize Firebase
 try:
@@ -182,6 +191,8 @@ def process_match(match):
             state['36_bet_type'] = 'regular'
             firebase_manager.update_tracked_match(fixture_id, state)
             send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 First Bet Placed")
+            unresolved_data = {**unresolved_data_base, 'bet_type': 'regular'}
+            firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
         elif score in ['1-0', '0-1']:
             state['36_bet_placed'] = True
             state['36_bet_type'] = 'no_draw'
@@ -192,18 +203,26 @@ def process_match(match):
         else:
             print(f"⛔ Skipping 36' bet for {match_name} — score {score} not in allowed range")
 
-    # ✅ Check HT result
+    # ✅ Check HT result and move regular bet to resolved
     if status == 'HT' and state.get('36_bet_placed') and not state.get('36_result_checked') and state.get('36_bet_type') == 'regular':
         current_score = score
+        # Fetch the unresolved bet data to pass to the resolved collection
+        unresolved_bet_data = firebase_manager.get_unresolved_bets('regular').get(str(fixture_id))
+        
         if current_score == state['score_36']:
             send_telegram(f"✅ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🎉 36' Bet WON")
             state['skip_80'] = True
+            if unresolved_bet_data:
+                firebase_manager.move_to_resolved(fixture_id, unresolved_bet_data, 'win')
         else:
             send_telegram(f"❌ HT Result: {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {current_score}\n🔁 36' Bet LOST — chasing at 80'")
+            state['skip_80'] = False
+            if unresolved_bet_data:
+                firebase_manager.move_to_resolved(fixture_id, unresolved_bet_data, 'loss')
         
         state['36_result_checked'] = True
         firebase_manager.update_tracked_match(fixture_id, state)
-
+        
     # ✅ Place 80' Chase Bet only if 36' bet failed and not skipped
     if 79 <= minute <= 81 and state.get('36_result_checked') and not state.get('skip_80') and not state.get('80_bet_placed'):
         score_80 = score
@@ -245,24 +264,33 @@ def check_unresolved_bets(daily_matches):
                 home_goals_ft = match_data['goals']['home']
                 away_goals_ft = match_data['goals']['away']
                 
+                outcome = None
+                
                 # --- Resolution Logic for different bet types ---
                 if bet_type == 'over_1.5':
                     if (home_goals_ft + away_goals_ft) > 1:
+                        outcome = 'win'
                         send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n🎉 Over 1.5 Goals Bet WON")
                     else:
+                        outcome = 'loss'
                         send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n📉 Over 1.5 Goals Bet LOST")
                 elif bet_type == 'no_draw':
                     if home_goals_ft != away_goals_ft:
+                        outcome = 'win'
                         send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n🎉 No Draw Bet WON")
                     else:
+                        outcome = 'loss'
                         send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n📉 No Draw Bet LOST")
                 elif bet_type == '80':
                     if final_score != info['score_80']:
+                        outcome = 'win'
                         send_telegram(f"✅ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n🎉 80' Chase Bet WON")
                     else:
+                        outcome = 'loss'
                         send_telegram(f"❌ FT Result: {info['match_name']}\n🏆 {info['league']}\n🔢 Score: {final_score}\n📉 80' Chase Bet LOST")
                 
-                firebase_manager.resolve_bet(match_id)
+                if outcome:
+                    firebase_manager.move_to_resolved(match_id, info, outcome)
 
 def run_bot_once():
     print(f"[{datetime.now()}] 🔍 Checking all daily matches...")
