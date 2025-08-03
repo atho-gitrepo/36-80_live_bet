@@ -117,6 +117,7 @@ def get_live_matches():
     try:
         res = requests.get(f"{BASE_URL}/fixtures?live=all", headers=HEADERS, timeout=10)
         print(f"[DEBUG] API call status code: {res.status_code}")
+        print(f"[DEBUG] Raw API response: {res.text}")
         if res.status_code != 200:
             print(f"❌ API ERROR: {res.status_code} - {res.text}")
             return []
