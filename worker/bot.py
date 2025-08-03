@@ -141,7 +141,7 @@ def get_daily_matches():
 def process_match(match):
     fixture_id = match['fixture']['id']
     match_name = f"{match['teams']['home']['name']} vs {match['teams']['away']['name']}"
-    league = f"{match['league']['name']}({match['league']['country']}) 
+    league = f"{match['league']['name']}({match['league']['country']})"
     league_id = match['league']['id']
     minute = match['fixture']['status']['elapsed']
     status = match['fixture']['status']['short']
