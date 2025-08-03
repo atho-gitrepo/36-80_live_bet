@@ -124,6 +124,7 @@ def get_daily_matches():
     try:
         res = requests.get(url, headers=HEADERS, timeout=10)
         print(f"[DEBUG] API call status code: {res.status_code}")
+        print(f"[DEBUG] Raw API response: {res.text}")
         if res.status_code != 200:
             print(f"❌ API ERROR: {res.status_code} - {res.text}")
             return []
