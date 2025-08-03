@@ -148,7 +148,10 @@ def fetch_match_result(match_id):
 def process_match(match):
     fixture_id = match['fixture']['id']
     match_name = f"{match['teams']['home']['name']} vs {match['teams']['away']['name']}"
-    minute = match['fixture']['status']['elapsed']
+    minute = match['fixture']['status'].get('elapsed')
+    if minute is None:
+    print(f"⚠️ Skipping match {match_name} — elapsed minute is None (match may not have started or data missing)")
+    return
     score = f"{match['goals']['home']}-{match['goals']['away']}"
     print(f"[DEBUG] Processing match {match_name} (ID: {fixture_id}) at minute {minute} with score {score}")
 
