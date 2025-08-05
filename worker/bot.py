@@ -149,14 +149,19 @@ def process_match(match):
     score = f"{match['goals']['home']}-{match['goals']['away']}"
     home_goals = match['goals']['home']
     away_goals = match['goals']['away']
+     # Add debug logs for basic match info
+    print(f"[DEBUG] Match: {match_name} | Status: {status} | Minute: {minute} | Score: {score}")
+    print(f"[DEBUG] Score type: {type(score)}, Value: '{score}'")
     
     # We only process matches that are currently live
     if status != 'Live' and status != 'HT':
+        print(f"[DEBUG] Skipping match - not live or HT (status: {status})")
         return
     
     print(f"[DEBUG] Processing match {match_name} (ID: {fixture_id}) at minute {minute} with score {score}")
     
     state = firebase_manager.get_tracked_match(fixture_id)
+    print(f"[DEBUG] Current state from Firebase: {state}")
     if not state:
         print(f"[DEBUG] No existing state found for {match_name}, creating new entry.")
         state = {
@@ -169,7 +174,10 @@ def process_match(match):
         firebase_manager.update_tracked_match(fixture_id, state)
 
     # ✅ Place 36' Bet
-    if 35 <= minute <= 37 and not state.get('36_bet_placed'):
+    if 35 <= minute <= 37:
+        print(f"[DEBUG] In 36' window (minute: {minute})")
+        print(f"[DEBUG] 36_bet_placed: {state.get('36_bet_placed')}")
+        if not state.get('36_bet_placed'):
         print(f"[DEBUG] Checking 36' bet condition for {match_name}. Current score: {score}")
         state['score_36'] = score
         
@@ -180,7 +188,7 @@ def process_match(match):
             'league_id': league_id,
         }
         
-        if score == ['1-0', '0-1']:
+        if score in ['1-0', '0-1']:
             state['36_bet_placed'] = True
             state['36_bet_type'] = 'over_2.5'
             firebase_manager.update_tracked_match(fixture_id, state)
@@ -194,7 +202,7 @@ def process_match(match):
             send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 First Bet Placed")
             unresolved_data = {**unresolved_data_base, 'bet_type': 'regular'}
             firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
-        elif score in '0-0':
+        elif score == '0-0':
             state['36_bet_placed'] = True
             state['36_bet_type'] = 'no_draw'
             firebase_manager.update_tracked_match(fixture_id, state)
