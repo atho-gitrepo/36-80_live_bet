@@ -145,10 +145,12 @@ def process_match(match):
     league = match['league']['name']
     league_id = match['league']['id']
     minute = match['fixture']['status']['elapsed']
-    status = match['fixture']['status']['short']
-    score = f"{match['goals']['home']}-{match['goals']['away']}"
-    home_goals = match['goals']['home']
-    away_goals = match['goals']['away']
+    status = match['fixture']['status']['short'] 
+    # Handle None scores
+    home_goals = match['goals']['home'] if match['goals']['home'] is not None else 0
+    away_goals = match['goals']['away'] if match['goals']['away'] is not None else 0
+    score = f"{home_goals}-{away_goals}"
+    
      # Add debug logs for basic match info
     print(f"[DEBUG] Match: {match_name} | Status: {status} | Minute: {minute} | Score: {score}")
     print(f"[DEBUG] Score type: {type(score)}, Value: '{score}'")
@@ -157,7 +159,9 @@ def process_match(match):
     if status != 'Live' and status != 'HT':
         print(f"[DEBUG] Skipping match - not live or HT (status: {status})")
         return
-    
+     if minute is None and status == 'Live':
+        print(f"[WARNING] Live match {match_name} has no minute data")
+        return
     print(f"[DEBUG] Processing match {match_name} (ID: {fixture_id}) at minute {minute} with score {score}")
     
     state = firebase_manager.get_tracked_match(fixture_id)
