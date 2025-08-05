@@ -326,7 +326,7 @@ def check_unresolved_bets():
             send_telegram(message)
             firebase_manager.move_to_resolved(match_id, bet_info, outcome)
 
-def run_bot_cycle():
+def run_bot_once():
     """Run one complete cycle of the bot"""
     print(f"\n⏰ [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting new cycle")
     
