@@ -352,7 +352,7 @@ if __name__ == "__main__":
     while True:
         try:
             cycle_count += 1
-            run_bot_cycle()
+            run_bot_once()
             health_check()
         except Exception as e:
             error_msg = f"🔥 CRITICAL ERROR: {str(e)[:300]}"
