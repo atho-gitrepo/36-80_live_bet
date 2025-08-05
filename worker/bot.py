@@ -173,44 +173,44 @@ def process_match(match):
         }
         firebase_manager.update_tracked_match(fixture_id, state)
 
-    # ✅ Place 36' Bet
+   # ✅ Place 36' Bet
     if 35 <= minute <= 37:
         print(f"[DEBUG] In 36' window (minute: {minute})")
         print(f"[DEBUG] 36_bet_placed: {state.get('36_bet_placed')}")
         if not state.get('36_bet_placed'):
-        print(f"[DEBUG] Checking 36' bet condition for {match_name}. Current score: {score}")
-        state['score_36'] = score
-        
-        unresolved_data_base = {
-            'match_name': match_name,
-            'placed_at': datetime.utcnow().isoformat(),
-            'league': league,
-            'league_id': league_id,
-        }
-        
-        if score in ['1-0', '0-1']:
-            state['36_bet_placed'] = True
-            state['36_bet_type'] = 'over_2.5'
-            firebase_manager.update_tracked_match(fixture_id, state)
-            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 Bet: Over 2.5 Goals FT")
-            unresolved_data = {**unresolved_data_base, 'bet_type': 'over_2.5', 'home_goals_36': home_goals, 'away_goals_36': away_goals}
-            firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
-        elif score in ['1-1', '2-2', '3-3']:
-            state['36_bet_placed'] = True
-            state['36_bet_type'] = 'regular'
-            firebase_manager.update_tracked_match(fixture_id, state)
-            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 First Bet Placed")
-            unresolved_data = {**unresolved_data_base, 'bet_type': 'regular'}
-            firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
-        elif score == '0-0':
-            state['36_bet_placed'] = True
-            state['36_bet_type'] = 'no_draw'
-            firebase_manager.update_tracked_match(fixture_id, state)
-            send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 Bet: No Draw FT")
-            unresolved_data = {**unresolved_data_base, 'bet_type': 'no_draw', 'home_goals_36': home_goals, 'away_goals_36': away_goals}
-            firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
-        else:
-            print(f"⛔ Skipping 36' bet for {match_name} — score {score} not in allowed range")
+            print(f"[DEBUG] Checking 36' bet condition for {match_name}. Current score: {score}")
+            state['score_36'] = score
+            
+            unresolved_data_base = {
+                'match_name': match_name,
+                'placed_at': datetime.utcnow().isoformat(),
+                'league': league,
+                'league_id': league_id,
+            }
+            
+            if score in ['1-0', '0-1']:
+                state['36_bet_placed'] = True
+                state['36_bet_type'] = 'over_2.5'
+                firebase_manager.update_tracked_match(fixture_id, state)
+                send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 Bet: Over 2.5 Goals FT")
+                unresolved_data = {**unresolved_data_base, 'bet_type': 'over_2.5', 'home_goals_36': home_goals, 'away_goals_36': away_goals}
+                firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
+            elif score in ['1-1', '2-2', '3-3']:
+                state['36_bet_placed'] = True
+                state['36_bet_type'] = 'regular'
+                firebase_manager.update_tracked_match(fixture_id, state)
+                send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 First Bet Placed")
+                unresolved_data = {**unresolved_data_base, 'bet_type': 'regular'}
+                firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
+            elif score == '0-0':
+                state['36_bet_placed'] = True
+                state['36_bet_type'] = 'no_draw'
+                firebase_manager.update_tracked_match(fixture_id, state)
+                send_telegram(f"⏱️ 36' - {match_name}\n🏆 {league}\n🏷️ League ID: {league_id}\n🔢 Score: {score}\n🎯 Bet: No Draw FT")
+                unresolved_data = {**unresolved_data_base, 'bet_type': 'no_draw', 'home_goals_36': home_goals, 'away_goals_36': away_goals}
+                firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
+            else:
+                print(f"⛔ Skipping 36' bet for {match_name} — score {score} not in allowed range")
 
     # ✅ Check HT result and move regular bet to resolved
     if status == 'HT' and state.get('36_bet_placed') and not state.get('36_result_checked') and state.get('36_bet_type') == 'regular':
