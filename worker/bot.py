@@ -156,7 +156,6 @@ def get_fixtures_by_ids(match_ids):
     except Exception as e:
         print(f"❌ Fixture Lookup Error: {e}")
         return {}
-
 def process_match(match):
     fixture = match['fixture']
     teams = match['teams']
@@ -170,28 +169,37 @@ def process_match(match):
     minute = fixture['status']['elapsed']
     status = fixture['status']['short'] 
     
-    # Handle possible None scores
-    home_goals = goals['home'] or 0
-    away_goals = goals['away'] or 0
+    # Handle possible None scores and minutes
+    home_goals = goals['home'] if goals['home'] is not None else 0
+    away_goals = goals['away'] if goals['away'] is not None else 0
     score = f"{home_goals}-{away_goals}"
     
-    # Skip non-live matches
-    if status not in ['LIVE', 'HT']:
+    # Skip non-live matches (case-insensitive check)
+    if status.upper() not in ['LIVE', 'HT', '1H', '2H']:
         return
         
+    # Skip matches without minute data
+    if minute is None:
+        print(f"⚠️ Skipping {match_name} - no minute data (status: {status})")
+        return
+    
     print(f"⚽ Processing: {match_name} ({minute}' {score}) [ID: {fixture_id}]")
     
     # Get or create match state
-    state = firebase_manager.get_tracked_match(fixture_id) or {
-        '36_bet_placed': False,
-        '36_result_checked': False,
-        '80_bet_placed': False,
-        '36_bet_type': None,
-        'skip_80': False
-    }
+    state = firebase_manager.get_tracked_match(fixture_id)
+    if not state:
+        state = {
+            '36_bet_placed': False,
+            '36_result_checked': False,
+            '80_bet_placed': False,
+            '36_bet_type': None,
+            'skip_80': False
+        }
+        firebase_manager.update_tracked_match(fixture_id, state)
 
-    # ✅ Place 36' Bet
-    if 35 <= minute <= 37 and not state.get('36_bet_placed'):
+    # ✅ Place 36' Bet (Widened window to 35-42 minutes)
+    if 35 <= minute <= 42 and not state.get('36_bet_placed'):
+        print(f"🔍 Checking 36' bet for {match_name} at {minute}'")
         state['score_36'] = score
         unresolved_data_base = {
             'match_name': match_name,
@@ -201,6 +209,7 @@ def process_match(match):
         }
         
         if score in ['1-0', '0-1']:
+            print("✅ Placing Over 2.5 bet")
             state['36_bet_placed'] = True
             state['36_bet_type'] = 'over_2.5'
             firebase_manager.update_tracked_match(fixture_id, state)
@@ -209,6 +218,7 @@ def process_match(match):
             firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
             
         elif score in ['1-1', '2-2', '3-3']:
+            print("✅ Placing Regular bet")
             state['36_bet_placed'] = True
             state['36_bet_type'] = 'regular'
             firebase_manager.update_tracked_match(fixture_id, state)
@@ -217,6 +227,7 @@ def process_match(match):
             firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
             
         elif score == '0-0':
+            print("✅ Placing No Draw bet")
             state['36_bet_placed'] = True
             state['36_bet_type'] = 'no_draw'
             firebase_manager.update_tracked_match(fixture_id, state)
@@ -246,8 +257,9 @@ def process_match(match):
         state['36_result_checked'] = True
         firebase_manager.update_tracked_match(fixture_id, state)
 
-    # ✅ Place 80' Chase Bet
-    if 79 <= minute <= 81 and state.get('36_result_checked') and not state.get('skip_80') and not state.get('80_bet_placed'):
+    # ✅ Place 80' Chase Bet (Widened window to 79-85 minutes)
+    if 79 <= minute <= 85 and state.get('36_result_checked') and not state.get('skip_80') and not state.get('80_bet_placed'):
+        print(f"🔍 Placing 80' chase bet for {match_name} at {minute}'")
         state['score_80'] = score
         state['80_bet_placed'] = True
         firebase_manager.update_tracked_match(fixture_id, state)
