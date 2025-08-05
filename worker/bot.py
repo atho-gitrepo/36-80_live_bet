@@ -159,9 +159,6 @@ def process_match(match):
     if status != 'Live' and status != 'HT':
         print(f"[DEBUG] Skipping match - not live or HT (status: {status})")
         return
-     if minute is None and status == 'Live':
-        print(f"[WARNING] Live match {match_name} has no minute data")
-        return
     print(f"[DEBUG] Processing match {match_name} (ID: {fixture_id}) at minute {minute} with score {score}")
     
     state = firebase_manager.get_tracked_match(fixture_id)
