@@ -156,6 +156,7 @@ def get_fixtures_by_ids(match_ids):
     except Exception as e:
         print(f"❌ Fixture Lookup Error: {e}")
         return {}
+
 def process_match(match):
     fixture = match['fixture']
     teams = match['teams']
@@ -197,9 +198,16 @@ def process_match(match):
             'skip_80': False
         }
         firebase_manager.update_tracked_match(fixture_id, state)
+    else:
+        # Ensure all state keys exist
+        state.setdefault('36_bet_placed', False)
+        state.setdefault('36_result_checked', False)
+        state.setdefault('80_bet_placed', False)
+        state.setdefault('36_bet_type', None)
+        state.setdefault('skip_80', False)
 
     # ✅ Place 36' Bet (Widened window to 35-42 minutes)
-    if 35 <= minute <= 42 and not state.get('36_bet_placed'):
+    if status.upper() == '1H' and 35 <= minute <= 42 and not state.get('36_bet_placed'):
         print(f"🔍 Checking 36' bet for {match_name} at {minute}'")
         state['score_36'] = score
         unresolved_data_base = {
@@ -239,13 +247,16 @@ def process_match(match):
             
         else:
             print(f"⛔ No 36' bet for {match_name} - score {score} not in strategy")
+            # Mark as placed to avoid retrying
+            state['36_bet_placed'] = True
+            firebase_manager.update_tracked_match(fixture_id, state)
 
     # ✅ Check HT result for regular bets
-    if status == 'HT' and state.get('36_bet_placed') and not state.get('36_result_checked') and state.get('36_bet_type') == 'regular':
+    if status.upper() == 'HT' and state.get('36_bet_placed') and not state.get('36_result_checked') and state.get('36_bet_type') == 'regular':
         current_score = score
         unresolved_bet_data = firebase_manager.get_unresolved_bets('regular').get(str(fixture_id))
         
-        if current_score == state['score_36']:
+        if current_score == state.get('score_36', ''):
             send_telegram(f"✅ HT Result: {match_name}\n🏆 {league_name} ({country})\n🔢 Score: {current_score}\n🎉 36' Bet WON")
             state['skip_80'] = True
             if unresolved_bet_data:
@@ -260,7 +271,7 @@ def process_match(match):
         firebase_manager.update_tracked_match(fixture_id, state)
 
     # ✅ Place 80' Chase Bet (Widened window to 79-85 minutes)
-    if 79 <= minute <= 85 and state.get('36_result_checked') and not state.get('skip_80') and not state.get('80_bet_placed'):
+    if status.upper() == '2H' and 79 <= minute <= 85 and state.get('36_result_checked') and not state.get('skip_80') and not state.get('80_bet_placed'):
         print(f"🔍 Placing 80' chase bet for {match_name} at {minute}'")
         state['score_80'] = score
         state['80_bet_placed'] = True
@@ -272,6 +283,7 @@ def process_match(match):
             'score_80': score,
             'league': league_name,
             'league_id': league_id,
+            'country': country,  # Added country for resolution messages
             'bet_type': '80'
         }
         firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
@@ -307,6 +319,7 @@ def check_unresolved_bets():
         match_name = bet_info.get('match_name', f"Match {match_id}")
         league_name = bet_info.get('league', 'Unknown League')
         bet_type = bet_info['bet_type']
+        country = bet_info.get('country', 'N/A')  # Get country from bet info
         
         outcome = None
         message = ""
