@@ -222,10 +222,10 @@ def process_match(match):
         
         # Only place bets for 1-1, 2-2, or 3-3 scores
         if score in ['1-1', '2-2', '3-3']:
-            print("✅ Placing Regular bet")
+            print(f"✅ Placing Regular bet {match_name} - score {score}")
             state['36_bet_placed'] = True
             firebase_manager.update_tracked_match(fixture_id, state)
-            send_telegram(f"⏱️ 36' - {match_name}\n🏆{league_name} ({country})\n🔢 Score: {score}\n🎯 Correct Score Bet")
+            send_telegram(f"⏱️ 36' - {match_name}\n🏆{league_name} ({country})\n🔢 Score: {score}\n🎯 Correct Score Bet Place")
             unresolved_data = {**unresolved_data_base, 'bet_type': 'regular'}
             firebase_manager.add_unresolved_bet(fixture_id, unresolved_data)
         else:
