@@ -132,30 +132,45 @@ def get_live_matches():
         return []
 
 def get_fixtures_by_ids(match_ids):
-    """Fetch specific fixtures by their IDs"""
+    """Fetch specific FINISHED fixtures by their IDs"""
     if not match_ids:
         return {}
     
     print(f"🔍 Fetching {len(match_ids)} unresolved matches")
-    ids_param = '-'.join(str(mid) for mid in match_ids)
-    url = f"{BASE_URL}/fixtures?ids={ids_param}"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=20)
+    
+    # Split into chunks of 20 due to API limit
+    chunk_size = 20
+    fixtures = {}
+    
+    for i in range(0, len(match_ids), chunk_size):
+        chunk = match_ids[i:i+chunk_size]
+        ids_param = '-'.join(str(mid) for mid in chunk)
+        url = f"{BASE_URL}/fixtures?ids={ids_param}&status=FT"  # Only finished matches
         
-        # Handle rate limiting
-        if handle_api_rate_limit(response):
-            return get_fixtures_by_ids(match_ids)  # Retry after sleep
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=25)
             
-        if response.status_code != 200:
-            print(f"❌ API ERROR: {response.status_code} - {response.text}")
-            return {}
+            # Handle rate limiting
+            if handle_api_rate_limit(response):
+                # Retry current chunk after sleep
+                return get_fixtures_by_ids(match_ids)
+                
+            if response.status_code != 200:
+                print(f"❌ API ERROR: {response.status_code} - {response.text}")
+                continue
+                
+            data = response.json()
+            response_fixtures = data.get('response', [])
             
-        data = response.json()
-        fixtures = data.get('response', [])
-        return {str(f['fixture']['id']): f for f in fixtures}
-    except Exception as e:
-        print(f"❌ Fixture Lookup Error: {e}")
-        return {}
+            for f in response_fixtures:
+                fixtures[str(f['fixture']['id'])] = f
+                
+            print(f"✅ Retrieved {len(response_fixtures)} finished fixtures (chunk {i//chunk_size + 1})")
+            
+        except Exception as e:
+            print(f"❌ Fixture Lookup Error for chunk: {e}")
+    
+    return fixtures
 
 def process_match(match):
     fixture = match['fixture']
@@ -303,6 +318,7 @@ def check_unresolved_bets():
     
     for match_id, bet_info in unresolved_bets.items():
         if match_id not in fixtures:
+            print(f"⚠️ Fixture {match_id} not found in finished matches")
             continue
             
         match_data = fixtures[match_id]
@@ -311,6 +327,7 @@ def check_unresolved_bets():
         
         # Only process finished matches
         if status != 'FT':
+            print(f"⚠️ Match {match_id} not finished (status: {status}), skipping")
             continue
             
         home_goals_ft = match_data['goals']['home'] or 0
