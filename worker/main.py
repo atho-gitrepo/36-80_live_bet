@@ -1,4 +1,4 @@
-from bot import run_bot_once
+from bot import run_bot_cycle
 import time
 from datetime import datetime
 
@@ -9,7 +9,7 @@ def main():
 
     while True:
         try:
-            run_bot_once()
+            run_bot_cycle()
         except Exception as e:
             print(f"[{datetime.now()}] ❌ Unexpected error in main loop: {e}")
         finally:
