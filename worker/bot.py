@@ -224,7 +224,7 @@ def process_match(match):
         state.setdefault('ht_score', None)
 
     # ✅ Place 36' Bet (Widened window to 35-42 minutes)
-    if status.upper() == '1H' and 35 <= minute <= 42 and not state.get('36_bet_placed'):
+    if status.upper() == '1H' and 35 <= minute <= 37 and not state.get('36_bet_placed'):
         print(f"🔍 Checking 36' bet for {match_name} at {minute}'")
         state['36_score'] = score
         unresolved_data_base = {
@@ -236,7 +236,7 @@ def process_match(match):
         }
         
         # Only place bets for 1-1, 2-2, or 3-3 scores
-        if score in ['1-1', '2-2', '3-3']:
+        if score in ['0-0','1-1', '2-2', '3-3']:
             print(f"✅ Placing Regular bet {match_name} - score {score}")
             state['36_bet_placed'] = True
             firebase_manager.update_tracked_match(fixture_id, state)
@@ -273,7 +273,7 @@ def process_match(match):
         firebase_manager.update_tracked_match(fixture_id, state)
 
     # ✅ Place 80' Chase Bet (Widened window to 79-85 minutes)
-    if status.upper() == '2H' and 79 <= minute <= 85 and not state.get('80_bet_placed'):
+    if status.upper() == '2H' and 79 <= minute <= 81 and not state.get('80_bet_placed'):
         # Only place chase bet if 36' bet was lost
         if state.get('36_bet_won') is False:
             print(f"🔍 Placing 80' chase bet for {match_name} at {minute}'")
