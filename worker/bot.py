@@ -109,39 +109,39 @@ class FirebaseManager:
             logger.error(f"Error getting unresolved bets: {str(e)}")
             return {}
 
-    def add_unresolved_bet(self, match_id, data):
+   	def add_unresolved_bet(self, match_id, data):
     """Add unresolved bet with transaction to maintain consistency"""
-    @firestore.transactional
-    def add_bet_transaction(transaction, match_ref, unresolved_ref):
+    	@firestore.transactional
+    	def add_bet_transaction(transaction, match_ref, unresolved_ref):
         # Get the document snapshot properly
-        tracked_snap = transaction.get(match_ref)
+        	tracked_snap = transaction.get(match_ref)
         
-        if not tracked_snap.exists:
-            raise ValueError(f"Match {match_id} not found in tracked_matches")
+        	if not tracked_snap.exists:
+            	raise ValueError(f"Match {match_id} not found in tracked_matches")
             
         # Add to unresolved bets
-        transaction.set(unresolved_ref, data)
+        	transaction.set(unresolved_ref, data)
         
         # Update tracked match state if updates are provided
-        if 'tracked_updates' in data:
-            transaction.set(match_ref, data['tracked_updates'], merge=True)
+        	if 'tracked_updates' in data:
+            	transaction.set(match_ref, data['tracked_updates'], merge=True)
     
-    try:
-        logger.info(f"Adding unresolved bet for match {match_id}")
+    	try:
+        	logger.info(f"Adding unresolved bet for match {match_id}")
         
         # Create references first
-        match_ref = self.db.collection('tracked_matches').document(str(match_id))
-        unresolved_ref = self.db.collection('unresolved_bets').document(str(match_id))
+        	match_ref = self.db.collection('tracked_matches').document(str(match_id))
+        	unresolved_ref = self.db.collection('unresolved_bets').document(str(match_id))
         
         # Execute transaction with references
-        transaction = self.db.transaction()
-        add_bet_transaction(transaction, match_ref, unresolved_ref)
+        	transaction = self.db.transaction()
+        	add_bet_transaction(transaction, match_ref, unresolved_ref)
         
-        logger.info(f"Successfully added unresolved bet for match {match_id}")
+        	logger.info(f"Successfully added unresolved bet for match {match_id}")
         
-    except Exception as e:
-        logger.error(f"Failed to add unresolved bet for match {match_id}: {str(e)}")
-        raise
+    	except Exception as e:
+        	logger.error(f"Failed to add unresolved bet for match {match_id}: {str(e)}")
+        	raise
 
     def move_to_resolved(self, match_id, bet_info, outcome):
         """Atomic operation to move bet to resolved and clean up"""
