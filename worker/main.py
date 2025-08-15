@@ -1,4 +1,4 @@
-from bot import run_bot_cycle
+from bot import run_bot_once
 import time
 from datetime import datetime
 
