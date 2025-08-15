@@ -109,66 +109,63 @@ class FirebaseManager:
             logger.error(f"Error getting unresolved bets: {str(e)}")
             return {}
 
-   	def add_unresolved_bet(self, match_id, data):
-    """Add unresolved bet with transaction to maintain consistency"""
-    	@firestore.transactional
-    	def add_bet_transaction(transaction, match_ref, unresolved_ref):
-        # Get the document snapshot properly
-        	tracked_snap = transaction.get(match_ref)
-        
-        	if not tracked_snap.exists:
-            	raise ValueError(f"Match {match_id} not found in tracked_matches")
+    def add_unresolved_bet(self, match_id, data):
+        """Add unresolved bet with transaction to maintain consistency"""
+        @firestore.transactional
+        def add_bet_transaction(transaction, match_ref, unresolved_ref):
+            # Get the document snapshot properly
+            tracked_snap = transaction.get(match_ref)
             
-        # Add to unresolved bets
-        	transaction.set(unresolved_ref, data)
+            if not tracked_snap.exists:
+                raise ValueError(f"Match {match_id} not found in tracked_matches")
+                
+            # Add to unresolved bets
+            transaction.set(unresolved_ref, data)
+            
+            # Update tracked match state if updates are provided
+            if 'tracked_updates' in data:
+                transaction.set(match_ref, data['tracked_updates'], merge=True)
         
-        # Update tracked match state if updates are provided
-        	if 'tracked_updates' in data:
-            	transaction.set(match_ref, data['tracked_updates'], merge=True)
-    
-    	try:
-        	logger.info(f"Adding unresolved bet for match {match_id}")
-        
-        # Create references first
-        	match_ref = self.db.collection('tracked_matches').document(str(match_id))
-        	unresolved_ref = self.db.collection('unresolved_bets').document(str(match_id))
-        
-        # Execute transaction with references
-        	transaction = self.db.transaction()
-        	add_bet_transaction(transaction, match_ref, unresolved_ref)
-        
-        	logger.info(f"Successfully added unresolved bet for match {match_id}")
-        
-    	except Exception as e:
-        	logger.error(f"Failed to add unresolved bet for match {match_id}: {str(e)}")
-        	raise
+        try:
+            logger.info(f"Adding unresolved bet for match {match_id}")
+            
+            # Create references first
+            match_ref = self.db.collection('tracked_matches').document(str(match_id))
+            unresolved_ref = self.db.collection('unresolved_bets').document(str(match_id))
+            
+            # Execute transaction with references
+            transaction = self.db.transaction()
+            add_bet_transaction(transaction, match_ref, unresolved_ref)
+            
+            logger.info(f"Successfully added unresolved bet for match {match_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to add unresolved bet for match {match_id}: {str(e)}")
+            raise
 
     def move_to_resolved(self, match_id, bet_info, outcome):
         """Atomic operation to move bet to resolved and clean up"""
         @firestore.transactional
-        def resolve_transaction(transaction):
-            # 1. Verify the bet is still unresolved
-            unresolved_ref = self.db.collection('unresolved_bets').document(str(match_id))
+        def resolve_transaction(transaction, unresolved_ref, resolved_ref, tracked_ref):
+            # Verify the bet is still unresolved
             unresolved_snap = transaction.get(unresolved_ref)
             
             if not unresolved_snap.exists:
                 raise ValueError(f"Bet {match_id} not found in unresolved_bets")
             
-            # 2. Create resolved bet record
+            # Create resolved bet record
             resolved_data = {
                 **bet_info,
                 'outcome': outcome,
                 'resolved_at': datetime.utcnow().isoformat(),
                 'resolution_data': bet_info.get('match_data', {})
             }
-            resolved_ref = self.db.collection('resolved_bets').document(str(match_id))
             transaction.set(resolved_ref, resolved_data)
             
-            # 3. Remove from unresolved bets
+            # Remove from unresolved bets
             transaction.delete(unresolved_ref)
             
-            # 4. Clean up tracked match if conditions met
-            tracked_ref = self.db.collection('tracked_matches').document(str(match_id))
+            # Clean up tracked match if conditions met
             tracked_snap = transaction.get(tracked_ref)
             
             if tracked_snap.exists:
@@ -186,8 +183,16 @@ class FirebaseManager:
         
         try:
             logger.info(f"Resolving bet {match_id} with outcome: {outcome}")
+            
+            # Create references
+            unresolved_ref = self.db.collection('unresolved_bets').document(str(match_id))
+            resolved_ref = self.db.collection('resolved_bets').document(str(match_id))
+            tracked_ref = self.db.collection('tracked_matches').document(str(match_id))
+            
+            # Execute transaction
             transaction = self.db.transaction()
-            resolve_transaction(transaction)
+            resolve_transaction(transaction, unresolved_ref, resolved_ref, tracked_ref)
+            
             logger.info(f"Successfully resolved bet {match_id}")
             
         except Exception as e:
@@ -274,35 +279,22 @@ def send_telegram(message):
                 logger.error(f"Failed to send Telegram message after {max_retries} attempts")
                 return False
 
-def handle_api_rate_limit(response):
-    """Handle API rate limiting with exponential backoff"""
-    if response.status_code == 429:
-        retry_after = int(response.headers.get('Retry-After', 60))
-        logger.warning(f"Rate limited. Sleeping for {retry_after} seconds")
-        time.sleep(retry_after)
-        return True
-    return False
-
-def get_live_matches():
-    """Fetch live matches with retry logic"""
-    url = f"{BASE_URL}/fixtures?live=all"
-    max_retries = 3
-    
+def make_api_request(url, headers, timeout=15, max_retries=3):
+    """Make API request with retry logic and rate limit handling"""
     for attempt in range(max_retries):
         try:
-            logger.info(f"Fetching live matches (attempt {attempt + 1})")
-            response = requests.get(url, headers=HEADERS, timeout=15)
+            logger.debug(f"Making API request to {url} (attempt {attempt + 1})")
+            response = requests.get(url, headers=headers, timeout=timeout)
             
-            if handle_api_rate_limit(response):
-                continue  # Will retry after sleep
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get('Retry-After', 60))
+                logger.warning(f"Rate limited. Sleeping for {retry_after} seconds")
+                time.sleep(retry_after)
+                continue
                 
             response.raise_for_status()
-            
-            data = response.json()
-            matches = data.get('response', [])
-            
-            logger.info(f"Found {len(matches)} live matches")
-            return matches
+            return response
             
         except requests.exceptions.RequestException as e:
             logger.warning(f"API request failed (attempt {attempt + 1}): {str(e)}")
@@ -311,18 +303,26 @@ def get_live_matches():
                 logger.info(f"Retrying in {sleep_time} seconds...")
                 time.sleep(sleep_time)
             else:
-                logger.error("Failed to fetch live matches after retries")
-                return []
+                logger.error(f"Failed after {max_retries} attempts")
+                raise
+
+def get_live_matches():
+    """Fetch live matches using the tracked API call"""
+    url = f"{BASE_URL}/fixtures?live=all"
+    try:
+        response = make_api_request(url, HEADERS)
+        data = response.json()
+        return data.get('response', [])
+    except Exception as e:
+        logger.error(f"Error getting live matches: {str(e)}")
+        return []
 
 def get_fixtures_by_ids(match_ids):
-    """Batch fetch finished fixtures by IDs with chunking"""
+    """Fetch fixtures using the tracked API call"""
     if not match_ids:
-        logger.info("No match IDs provided for fixture lookup")
         return {}
         
-    logger.info(f"Fetching {len(match_ids)} unresolved matches")
-    
-    chunk_size = 20  # API limit
+    chunk_size = 20
     fixtures = {}
     
     for i in range(0, len(match_ids), chunk_size):
@@ -331,23 +331,10 @@ def get_fixtures_by_ids(match_ids):
         url = f"{BASE_URL}/fixtures?ids={ids_param}&status=FT"
         
         try:
-            logger.debug(f"Fetching chunk {i//chunk_size + 1} with {len(chunk)} matches")
-            response = requests.get(url, headers=HEADERS, timeout=25)
-            
-            if handle_api_rate_limit(response):
-                continue  # Will retry after sleep
-                
-            response.raise_for_status()
-            
+            response = make_api_request(url, HEADERS, timeout=25)
             data = response.json()
-            response_fixtures = data.get('response', [])
-            
-            for f in response_fixtures:
-                fixture_id = str(f['fixture']['id'])
-                fixtures[fixture_id] = f
-                
-            logger.info(f"Retrieved {len(response_fixtures)} finished fixtures in chunk {i//chunk_size + 1}")
-            
+            for f in data.get('response', []):
+                fixtures[str(f['fixture']['id'])] = f
         except Exception as e:
             logger.error(f"Error fetching fixture chunk: {str(e)}")
             continue
@@ -666,6 +653,9 @@ def run_bot_cycle():
     except Exception as e:
         logger.error(f"Error during bot cycle: {str(e)}\n{traceback.format_exc()}")
         return False
+
+# Backward compatibility alias
+run_bot_once = run_bot_cycle
 
 def main():
     """Main bot execution loop"""
