@@ -268,6 +268,7 @@ def process_match(match):
         else:
             send_telegram(f"❌ HT Result: {match_name}\n🏆 {league_name} ({country})\n🔢 Score: {current_score}\n🔁 36' Bet LOST — eligible for chase")
             state['36_bet_won'] = False
+            firebase_manager.move_to_resolved(fixture_id, unresolved_bet_data, 'lost')
             
         state['36_result_checked'] = True
         firebase_manager.update_tracked_match(fixture_id, state)
